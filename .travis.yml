@@ -1,0 +1,19 @@
+language: erlang
+otp_release:
+  - 17.0
+  - R16B03-1
+  - R16B
+before_script:
+  - rebar get-deps
+script: rebar compile ct suites=cloudi_service_queue,cloudi_write_ahead_logging || ( cat logs/raw.log logs/ct_run*/cloudi.log && exit 1 )
+after_script:
+  - rebar clean
+branches:
+  only:
+    - master
+notifications:
+  irc:
+    channels:
+      - "chat.freenode.net#cloudi"
+    on_success: change
+    on_failure: always
