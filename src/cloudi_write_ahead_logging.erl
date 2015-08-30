@@ -10,7 +10,7 @@
 %%%
 %%% BSD LICENSE
 %%% 
-%%% Copyright (c) 2014, Michael Truog <mjtruog at gmail dot com>
+%%% Copyright (c) 2014-2015, Michael Truog <mjtruog at gmail dot com>
 %%% All rights reserved.
 %%% 
 %%% Redistribution and use in source and binary forms, with or without
@@ -45,8 +45,8 @@
 %%% DAMAGE.
 %%%
 %%% @author Michael Truog <mjtruog [at] gmail (dot) com>
-%%% @copyright 2014 Michael Truog
-%%% @version 1.3.2 {@date} {@time}
+%%% @copyright 2014-2015 Michael Truog
+%%% @version 1.5.1 {@date} {@time}
 %%%------------------------------------------------------------------------
 
 -module(cloudi_write_ahead_logging).
@@ -61,7 +61,7 @@
          store_end/3,
          store_fail/2,
          store_start/2,
-         new/2,
+         new/3,
          update/3]).
 
 % overhead: chunk_size, chunk_size_used
@@ -79,13 +79,22 @@
         retries = 0 :: non_neg_integer()
     }).
 
+-ifdef(ERLANG_OTP_VERSION_16).
+-type dict_proxy(_Key, _Value) :: dict().
+-else.
+-type dict_proxy(Key, Value) :: dict:dict(Key, Value).
+-endif.
 -record(state,
     {
         file :: binary() | string(),
+        compression :: 0..9, % zlib compression level
         position :: non_neg_integer(),
-        chunks = dict:new() :: dict(),       % chunk_id -> #chunk{}
-        chunks_free = [] :: list(#chunk{})   % ordered
+        chunks = dict:new() :: dict_proxy(cloudi_service:trans_id(), #chunk{}),
+        chunks_free = [] :: list(#chunk{}) % ordered
     }).
+
+-type state() :: #state{}.
+-export_type([state/0]).
 
 %%%------------------------------------------------------------------------
 %%% External interface functions
@@ -188,10 +197,12 @@ store_fail(Chunk, #state{file = FilePath} = State) ->
 
 store_start(ChunkRequest,
             #state{file = FilePath,
+                   compression = Compression,
                    position = Position,
                    chunks_free = ChunksFree} = State) ->
     {ok, Fd} = file_open(FilePath),
-    ChunkData = erlang:term_to_binary(ChunkRequest),
+    ChunkData = erlang:term_to_binary(ChunkRequest,
+                                      [{compressed, Compression}]),
     ChunkSizeUsed = erlang:byte_size(ChunkData),
     case chunk_free_check(ChunksFree, ChunkSizeUsed) of
         false ->
@@ -215,13 +226,15 @@ store_start(ChunkRequest,
     end.
 
 -spec new(FilePath :: string() | binary(),
+          Compression :: 0..9,
           RetryF :: fun((cloudi_service_queue:request()) ->
                         {ok, cloudi_service:trans_id()} |
                         {error, any()})) ->
     #state{}.
 
-new(FilePath, RetryF)
-    when is_function(RetryF, 1) ->
+new(FilePath, Compression, RetryF)
+    when is_integer(Compression), Compression >= 0, Compression =< 9,
+         is_function(RetryF, 1) ->
     State = #state{},
     #state{chunks = Chunks,
            chunks_free = ChunksFree} = State,
@@ -233,6 +246,7 @@ new(FilePath, RetryF)
     ok = file:datasync(Fd),
     ok = file:close(Fd),
     State#state{file = FilePath,
+                compression = Compression,
                 position = Position,
                 chunks = NewChunks,
                 chunks_free = NewChunksFree}.
@@ -246,6 +260,7 @@ new(FilePath, RetryF)
 
 update(ChunkId, UpdateF,
        #state{file = FilePath,
+              compression = Compression,
               position = Position,
               chunks = Chunks,
               chunks_free = ChunksFree} = State) ->
@@ -258,7 +273,8 @@ update(ChunkId, UpdateF,
         {NewChunkId, NewChunkRequest} ->
             {ok, Fd} = file_open(FilePath),
             % store update
-            NewChunkData = erlang:term_to_binary(NewChunkRequest),
+            NewChunkData = erlang:term_to_binary(NewChunkRequest,
+                                                 [{compressed, Compression}]),
             NewChunkSizeUsed = erlang:byte_size(NewChunkData),
             NextState = case chunk_free_check(ChunksFree, NewChunkSizeUsed) of
                 false ->
