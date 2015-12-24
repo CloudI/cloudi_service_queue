@@ -3,7 +3,7 @@ defmodule CloudIServiceQueue do
 
   def project do
     [app: :cloudi_service_queue,
-     version: "1.5.0",
+     version: "1.5.1",
      language: :erlang,
      description: description,
      package: package,
@@ -11,7 +11,7 @@ defmodule CloudIServiceQueue do
   end
 
   defp deps do
-    [{:cloudi_core, "~> 1.5.0"}]
+    [{:cloudi_core, "~> 1.5.1"}]
   end
 
   defp description do
@@ -20,7 +20,7 @@ defmodule CloudIServiceQueue do
 
   defp package do
     [files: ~w(src doc test rebar.config README.markdown),
-     contributors: ["Michael Truog"],
+     maintainers: ["Michael Truog"],
      licenses: ["BSD"],
      links: %{"Website" => "http://cloudi.org",
               "GitHub" => "https://github.com/CloudI/" <>
