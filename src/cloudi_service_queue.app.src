@@ -3,7 +3,7 @@
 
 {application, cloudi_service_queue, 
   [{description, "CloudI Persistent Queue Service"},
-   {vsn, "1.7.2"},
+   {vsn, "1.7.3"},
    {modules, [
         cloudi_service_queue,
         cloudi_write_ahead_logging

@@ -6,7 +6,7 @@ defmodule CloudIServiceQueue do
 
   def project do
     [app: :cloudi_service_queue,
-     version: "1.7.2",
+     version: "1.7.3",
      language: :erlang,
      description: description(),
      package: package(),
@@ -14,7 +14,7 @@ defmodule CloudIServiceQueue do
   end
 
   defp deps do
-    [{:cloudi_core, "~> 1.7.2"}]
+    [{:cloudi_core, "~> 1.7.3"}]
   end
 
   defp description do
